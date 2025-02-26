@@ -115,7 +115,9 @@ fn main() {
             let next_result = iter.peek().unwrap();
             let next_record = next_result.as_ref().unwrap();
             let next_relative_time = next_record[0].parse::<f32>().unwrap();
-            std::thread::sleep(Duration::from_secs_f32(next_relative_time - relative_time));    
+            let time_to_wait = next_relative_time - relative_time;
+            println!("{time_to_wait}s until next");
+            std::thread::sleep(Duration::from_secs_f32(time_to_wait));
         }
     }
     
