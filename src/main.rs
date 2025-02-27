@@ -72,15 +72,15 @@ fn set_bridge_state(ns: &NetNs, interface: &str) {
 }
 
 fn main() {
+    // setup and checks
+    let args = Args::parse();
+
     // we need to be root in order to create network namespaces or interfaces
     if get_effective_uid() != 0 {
         eprintln!("Elevated privileges are required \
             to create network namespaces or interfaces");
         exit(1);
     }
-
-    // setup and checks
-    let args = Args::parse();
 
     // try to read file
     let mut rdr = Reader::from_path(args.file.as_str()).unwrap_or_else(|_| {
