@@ -3,6 +3,10 @@ use std::{process::{Command, ExitStatus, exit}, time::Duration};
 use csv::Reader;
 use clap::Parser;
 use std::str::FromStr;
+use users::get_effective_uid;
+
+const CSV_IDX_REL_TIME: usize = 0;
+const CSV_IDX_LOSS: usize = 1;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -68,6 +72,13 @@ fn set_bridge_state(ns: &NetNs, interface: &str) {
 }
 
 fn main() {
+    // we need to be root in order to create network namespaces or interfaces
+    if get_effective_uid() != 0 {
+        eprintln!("Elevated privileges are required \
+            to create network namespaces or interfaces");
+        exit(1);
+    }
+
     // setup and checks
     let args = Args::parse();
 
@@ -123,12 +134,13 @@ fn main() {
         let result = iter.next().unwrap();
         line += 1;
         let record = result.unwrap();
-        let relative_time = f32::from_str(&record[0])
+        let relative_time = f32::from_str(&record[CSV_IDX_REL_TIME])
             .unwrap_or_else(|_| {
-                eprintln!("Could not parse f32 from: {} on line {}", String::from(&record[0]), line);
+                eprintln!("Could not parse f32 from: {} on line {}",
+                    String::from(&record[CSV_IDX_REL_TIME]), line);
                 exit(1);
             });
-        let lost = &record[1];
+        let lost = &record[CSV_IDX_LOSS];
 
         match lost.into() {
             "True" => set_bridge_state(&ns2, "veth2"),
@@ -143,9 +155,10 @@ fn main() {
         if iter.peek().is_some() {
             let next_result = iter.peek().unwrap();
             let next_record = next_result.as_ref().unwrap();
-            let next_relative_time = f32::from_str(&next_record[0])
+            let next_relative_time = f32::from_str(&next_record[CSV_IDX_REL_TIME])
                 .unwrap_or_else(|_| {
-                    eprintln!("Could not parse f32 from: {} on line {}", &next_record[0], line + 1);
+                    eprintln!("Could not parse f32 from: {} on line {}",
+                        &next_record[CSV_IDX_REL_TIME], line + 1);
                     exit(1);
                 });
             let time_to_wait = next_relative_time - relative_time;
