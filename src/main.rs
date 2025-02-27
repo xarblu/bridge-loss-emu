@@ -1,7 +1,20 @@
 use netns_rs::NetNs;
-use std::{process::{Command, ExitStatus}, time::Duration};
+use std::{process::{Command, ExitStatus, exit}, time::Duration};
 use csv::Reader;
-use chrono::DateTime;
+use clap::Parser;
+use std::str::FromStr;
+
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    // file with loss trace
+    #[arg(short, long)]
+    file: String,
+
+    // test scenario to run
+    #[arg(short, long, default_value_t = String::from("download"))]
+    test: String,
+}
 
 fn cmd_in_net_ns(ns: &NetNs, cmd: &[&str]) -> ExitStatus {
     ns.run(|_| {
@@ -55,6 +68,15 @@ fn set_bridge_state(ns: &NetNs, interface: &str) {
 }
 
 fn main() {
+    // setup and checks
+    let args = Args::parse();
+
+    // try to read file
+    let mut rdr = Reader::from_path(args.file.as_str()).unwrap_or_else(|_| {
+        eprintln!("Could not open csv file {} for reading", args.file.as_str());
+        exit(1);
+    });
+
     // init 2 network namespaces
     let ns1 = NetNs::new("ns1")
         .unwrap_or_else(|_| {
@@ -94,36 +116,48 @@ fn main() {
     // actual emulation code
     init_default_state(&ns2, "veth2");
 
-    let mut rdr = Reader::from_path("Emulation/loss_time_bridge_trace.csv").unwrap();
-
+    // cyncle through each entry in the csv and toggle netem accordingly
     let mut iter = rdr.records().peekable();
-
+    let mut line = 1; // start at 1 due to header
     while iter.peek().is_some() {
         let result = iter.next().unwrap();
+        line += 1;
         let record = result.unwrap();
-        let relative_time = record[0].parse::<f32>().unwrap();
+        let relative_time = f32::from_str(&record[0])
+            .unwrap_or_else(|_| {
+                eprintln!("Could not parse f32 from: {} on line {}", String::from(&record[0]), line);
+                exit(1);
+            });
         let lost = &record[1];
 
         match lost.into() {
             "True" => set_bridge_state(&ns2, "veth2"),
             "False" => set_default_state(&ns2, "veth2"),
-            _ => panic!("Parse error: {lost}")
+            _ => {
+                eprintln!("Could not parse True/False from: {}", lost);
+                exit(1);
+            }
         };
         
         // check if there's another entry and wait until its timestamp
         if iter.peek().is_some() {
             let next_result = iter.peek().unwrap();
             let next_record = next_result.as_ref().unwrap();
-            let next_relative_time = next_record[0].parse::<f32>().unwrap();
+            let next_relative_time = f32::from_str(&next_record[0])
+                .unwrap_or_else(|_| {
+                    eprintln!("Could not parse f32 from: {} on line {}", &next_record[0], line + 1);
+                    exit(1);
+                });
             let time_to_wait = next_relative_time - relative_time;
             println!("{time_to_wait}s until next");
             std::thread::sleep(Duration::from_secs_f32(time_to_wait));
         }
     }
-    
 
     // cleanup
     println!("Cleanup");
+    del_qdisc(&ns2, "veth2");
+
     cmd_in_net_ns(&ns1, &["ip", "link", "set", "veth1", "down"]);
     cmd_in_net_ns(&ns2, &["ip", "link", "set", "veth2", "down"]);
     cmd_in_net_ns(&ns1, &["ip", "addr", "delete", "10.0.0.1/24", "dev", "veth1"]);
