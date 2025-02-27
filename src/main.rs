@@ -5,19 +5,30 @@ use clap::Parser;
 use std::str::FromStr;
 use users::get_effective_uid;
 
+mod testbed;
+
+use testbed::Testbed;
+
 const CSV_IDX_REL_TIME: usize = 0;
 const CSV_IDX_LOSS: usize = 1;
 
+/// Emulator for packet loss caused by bridges
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
-    // file with loss trace
+    /// CSV file with loss trace of form relative_time,loss
     #[arg(short, long)]
     file: String,
 
-    // test scenario to run
+    /// Test to run
     #[arg(short, long, default_value_t = String::from("download"))]
     test: String,
+}
+
+enum Test {
+    Download,
+    Upload,
+    Stream
 }
 
 fn cmd_in_net_ns(ns: &NetNs, cmd: &[&str]) -> ExitStatus {
@@ -27,12 +38,6 @@ fn cmd_in_net_ns(ns: &NetNs, cmd: &[&str]) -> ExitStatus {
             .status()
             .expect("Failed running command in network namespace")
     }).unwrap()
-}
-
-fn del_qdisc(ns: &NetNs, interface: &str) {
-    let status = cmd_in_net_ns(ns, 
-        &["tc", "qdisc", "delete", "dev", interface, "root"]);
-    println!("QDisc removed ({status})");
 }
 
 fn init_default_state(ns: &NetNs, interface: &str) {
@@ -88,44 +93,20 @@ fn main() {
         exit(1);
     });
 
-    // init 2 network namespaces
-    let ns1 = NetNs::new("ns1")
-        .unwrap_or_else(|_| {
-            println!("ns1 already exists - reusing");
-            NetNs::get("ns1").unwrap()
-        });
-    let ns2 = NetNs::new("ns2")
-        .unwrap_or_else(|_| {
-            println!("ns2 already exists - reusing");
-            NetNs::get("ns2").unwrap()
-        });
-    
-    // inside each ns create a virtual interface
-    println!("Creating virtual interfaces");
-    Command::new("ip")
-        .args(["link", "add", "veth1", "type", "veth", "peer", "name", "veth2"])
-        .spawn()
-        .expect("Failed interface creation");
+    // match test
+    let test = match args.test.as_str() {
+        "download" => Test::Download,
+        _ => {
+            eprintln!("Unknown test {}", args.test.as_str());
+            exit(1);
+        }
+    };
 
-    println!("Attaching interfaces to network namespaces");
-    Command::new("ip")
-        .args(["link", "set", "veth1", "netns", "ns1"])
-        .spawn()
-        .expect("Failed attaching veth1 to ns1");
-    Command::new("ip")
-        .args(["link", "set", "veth2", "netns", "ns2"])
-        .spawn()
-        .expect("Failed attaching veth2 to ns2");
+    println!("Setting up testbed...");
+    let testbed = Testbed::new();
 
-    println!("Setting up addresses");
-    cmd_in_net_ns(&ns1, &["ip", "addr", "add", "10.0.0.1/24", "dev", "veth1"]);
-    cmd_in_net_ns(&ns2, &["ip", "addr", "add", "10.0.0.2/24", "dev", "veth2"]);
-    cmd_in_net_ns(&ns1, &["ip", "link", "set", "veth1", "up"]);
-    cmd_in_net_ns(&ns2, &["ip", "link", "set", "veth2", "up"]);
-
-    
     // actual emulation code
-    init_default_state(&ns2, "veth2");
+    init_default_state(&testbed.ns2, "veth2");
 
     // cyncle through each entry in the csv and toggle netem accordingly
     let mut iter = rdr.records().peekable();
@@ -143,8 +124,8 @@ fn main() {
         let lost = &record[CSV_IDX_LOSS];
 
         match lost.into() {
-            "True" => set_bridge_state(&ns2, "veth2"),
-            "False" => set_default_state(&ns2, "veth2"),
+            "True" => set_bridge_state(&testbed.ns2, "veth2"),
+            "False" => set_default_state(&testbed.ns2, "veth2"),
             _ => {
                 eprintln!("Could not parse True/False from: {}", lost);
                 exit(1);
@@ -167,20 +148,6 @@ fn main() {
         }
     }
 
-    // cleanup
-    println!("Cleanup");
-    del_qdisc(&ns2, "veth2");
-
-    cmd_in_net_ns(&ns1, &["ip", "link", "set", "veth1", "down"]);
-    cmd_in_net_ns(&ns2, &["ip", "link", "set", "veth2", "down"]);
-    cmd_in_net_ns(&ns1, &["ip", "addr", "delete", "10.0.0.1/24", "dev", "veth1"]);
-    cmd_in_net_ns(&ns2, &["ip", "addr", "delete", "10.0.0.2/24", "dev", "veth2"]);
-    
-    Command::new("ip")
-        .args(["link", "delete", "veth1"])
-        .spawn()
-        .expect("Failed interface deletion");
-
-    let _ = ns1.remove();
-    let _ = ns2.remove();
+    // destroy the testbed
+    testbed.destroy();
 }
