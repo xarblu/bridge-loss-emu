@@ -42,26 +42,20 @@ impl Testbed {
                 println!("Removing existing interface {}", if_name);
                 let _ = Command::new("ip")
                     .args(["link", "delete", "dev", if_name])
-                    .stdout(Stdio::null())
-                    .stderr(Stdio::null())
-                    .spawn();
+                    .status();
             }
         }
-
-        // create new interfaces and link them
-        let _ = Command::new("ip")
-            .args(["link", "add", "dev", new.if1.as_str(),
-                "type", "veth", "peer", "name", new.if2.as_str()]);
 
         // attach interfaces to namespaces
         for if_ns in [
             (new.if1.as_str(),&new.ns1),
             (new.if2.as_str(),&new.ns2) ] {
             let if_name = if_ns.0;
-            let if_ns = &if_ns.1.to_string();
+            let if_ns = &if_ns.1.path().file_name().unwrap().to_str().unwrap();
+
             let _ = Command::new("ip")
                 .args(["link", "set", "dev", if_name, "netns", if_ns])
-                .spawn()
+                .status()
                 .expect("Failed attaching {} to netns {}",);
         }
         
@@ -78,12 +72,12 @@ impl Testbed {
                 let _ = Command::new("ip")
                     .args(["addr", "add", addr,
                         "dev", if_name])
-                    .spawn();
+                    .status();
 
                 // set UP
                 let _ = Command::new("ip")
                     .args(["link", "set", "dev", if_name, "up"])
-                    .spawn();
+                    .status();
             });
         }
 
@@ -104,24 +98,24 @@ impl Testbed {
                 // remove qdisc
                 let _ = Command::new("tc")
                     .args(["qdisc", "delete", "dev", if_name, "root"])
-                    .spawn();
+                    .status();
 
                 // set interface DOWN
                 let _ = Command::new("ip")
                     .args(["link", "set", "dev", if_name, "down"])
-                    .spawn();
+                    .status();
 
                 // remove address
                 let _ = Command::new("ip")
                     .args(["addr", "delete", addr,
                         "dev", if_name])
-                    .spawn();
+                    .status();
             });
 
             // remove interface
             let _ = Command::new("ip")
                 .args(["link", "delete", if_name])
-                .spawn();
+                .status();
             
             // remove namespace
             //ns.remove();
