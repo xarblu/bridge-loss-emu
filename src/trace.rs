@@ -60,10 +60,7 @@ fn set_bridge_state(ns: &NetNs, interface: &str) {
 }
 
 
-pub fn run_trace(rdr: &mut Reader<File>) {
-    println!("Setting up testbed...");
-    let testbed = Testbed::new();
-
+pub fn run_trace(rdr: &mut Reader<File>, testbed: &Testbed) {
     init_default_state(&testbed.ns2, &testbed.if2);
 
     // cycle through each entry in the csv and toggle netem accordingly
@@ -105,7 +102,4 @@ pub fn run_trace(rdr: &mut Reader<File>) {
             std::thread::sleep(Duration::from_secs_f32(time_to_wait));
         }
     }
-
-    // destroy the testbed
-    testbed.destroy();
 }
