@@ -4,7 +4,6 @@ use tokio::runtime::Runtime;
 use std::path::Path;
 use fork::{fork, Fork};
 use std::process::exit;
-use std::fmt;
 
 use crate::trace;
 use crate::webserver;
@@ -44,7 +43,7 @@ pub fn run_test(rdr: &mut Reader<File>, file: String) {
                         "8000",
                         file_name.to_str().unwrap()
                         ));
-                let _ = downloader::download(url.as_str());
+                let _ = Runtime::new().unwrap().block_on(downloader::download(url.as_str()));
             });
 
             exit(0); // just assume it was a success

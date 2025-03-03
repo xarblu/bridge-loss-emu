@@ -1,64 +1,51 @@
-use reqwest::header::{HeaderValue, CONTENT_LENGTH, RANGE};
-use reqwest::StatusCode;
-use std::fs::File;
-use std::str::FromStr;
+use futures::StreamExt;
+use std::time::{SystemTime, Duration};
 
-struct PartialRangeIter {
-  start: u64,
-  end: u64,
-  buffer_size: u32,
-}
-
-impl PartialRangeIter {
-  pub fn new(start: u64, end: u64, buffer_size: u32) -> Result<Self, Box<dyn std::error::Error>> {
-    if buffer_size == 0 {
-      Err("invalid buffer_size, give a value greater than zero.")?;
-    }
-    Ok(PartialRangeIter {
-      start,
-      end,
-      buffer_size,
-    })
-  }
-}
-
-impl Iterator for PartialRangeIter {
-  type Item = HeaderValue;
-  fn next(&mut self) -> Option<Self::Item> {
-    if self.start > self.end {
-      None
-    } else {
-      let prev_start = self.start;
-      self.start += std::cmp::min(self.buffer_size as u64, self.end - self.start + 1);
-      Some(HeaderValue::from_str(&format!("bytes={}-{}", prev_start, self.start - 1)).expect("string provided by format!"))
-    }
-  }
-}
-
-pub fn download(url: &str) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn download(url: &str) -> Result<(), Box<dyn std::error::Error>> {
     println!("Downloading {}", url);
-    const CHUNK_SIZE: u32 = 10240;
 
-    let client = reqwest::blocking::Client::new();
-    let response = client.head(url).send()?;
-    let length = response
-        .headers()
-        .get(CONTENT_LENGTH)
-        .ok_or("response doesn't include the content length")?;
-    let length = u64::from_str(length.to_str()?).map_err(|_| "invalid Content-Length header")?;
+    let response = reqwest::Client::new()
+        .get(url)
+        .send()
+        .await
+        .unwrap();
+ 
+    let mut stream = response.bytes_stream();
 
-    println!("starting download...");
-    for range in PartialRangeIter::new(0, length - 1, CHUNK_SIZE)? {
-        println!("range {:?}", range);
-        let mut response = client.get(url).header(RANGE, range).send()?;
+    let mut cur_time = SystemTime::now();
+    let total_time = cur_time.clone();
+    let mut cur_bytes: u64 = 0;
+    let mut total_bytes: u64 = 0;
+    while let Some(item) = stream.next().await {
+        let chunk = item.expect("Download failed");
+        cur_bytes += chunk.len() as u64;
 
-        let status = response.status();
-        if !(status == StatusCode::OK || status == StatusCode::PARTIAL_CONTENT) {
-        Err("Unexpected response")?;
+        // every ~5 seconds print status
+        let elapsed = cur_time.elapsed().unwrap();
+        if elapsed >= Duration::from_secs(5) {
+            // rate in mbit/s
+            let rate = ((((cur_bytes as f64) * 8.0) / 1024.0) / 1024.0) / elapsed.as_secs_f64();
+            println!("Downloaded {} MB in {} s at rate {} Mbit/s",
+                cur_bytes / 1024 / 1024,
+                elapsed.as_secs_f64(),
+                rate);
+
+            // increase total counter
+            total_bytes += cur_bytes;
+
+            // reset counters
+            cur_time = SystemTime::now();
+            cur_bytes = 0;
         }
     }
 
-    println!("Finished with success!");
+    // total progress
+    let elapsed = total_time.elapsed().unwrap();
+    let rate = ((((cur_bytes as f64) * 8.0) / 1024.0) / 1024.0) / elapsed.as_secs_f64();
+    println!("Downloaded {} MB in {} s at rate {} Mbit/s total",
+        total_bytes / 1024 / 1024,
+        elapsed.as_secs_f64(),
+        rate);
+
     Ok(())
 }
-
