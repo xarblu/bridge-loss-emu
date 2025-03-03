@@ -27,11 +27,11 @@ In case of `No distribution data for pareto (/lib/tc/pareto.dist: No such file o
 
 - [ ] tshark packet capture
 - [ ] emulation scenarios
-  - [ ] download
+  - [x] download
   - [ ] upload
   - [ ] streaming (essentially rate limited download)
   - [ ] launcher for external app
-- [ ] cli
-  - [ ] scenario selection
-  - [ ] file selection
+- [x] cli
+  - [x] scenario selection
+  - [x] file selection
 - [ ] change netem params directly e.g. via sysfs (if possible)
