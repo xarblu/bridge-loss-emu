@@ -9,6 +9,7 @@ pub async fn host_file(file: String) -> () {
     // TODO should listen on all addresses by default since we talk across namespaces
     // for now requires ROCKET_ADDRESS=0.0.0.0
     let dir_name = path.parent().unwrap();
+    println!("FileServer root: {}", dir_name.to_str().unwrap());
     let server = FileServer::from(dir_name);
     let _ = rocket::build()
         .mount("/", server)

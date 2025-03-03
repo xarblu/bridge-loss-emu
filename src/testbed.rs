@@ -12,25 +12,26 @@ pub struct Testbed {
 
 impl Testbed {
     pub fn new() -> Testbed {
+        // delete namespaces if they exist
+        for name in ["ns1", "ns2"] {
+            let ns = NetNs::get(name);
+            if ns.is_ok() {
+                println!("{} exists - recreating", name);
+                let _ = ns.unwrap().remove();
+            }
+        }
+
         // create new testbed
         let new = Self {
-            ns1: NetNs::new("ns1")
-                .unwrap_or_else(|_| {
-                    println!("ns1 already exists - reusing");
-                    NetNs::get("ns1").unwrap()
-                }),
-            ns2: NetNs::new("ns2")
-                .unwrap_or_else(|_| {
-                    println!("ns2 already exists - reusing");
-                    NetNs::get("ns2").unwrap()
-                }),
+            ns1: NetNs::new("ns1").expect("Creating ns1 failed"),
+            ns2: NetNs::new("ns2").expect("Createing ns2 failed"),
             if1: String::from("veth1"),
             if2: String::from("veth2"),
             addr1: String::from("10.0.0.1/24"),
             addr2: String::from("10.0.0.2/24"),
         };
         
-        // delete interfaces if they exist
+        // delete interfaces if they existm then create bew ones
         for if_name in [new.if1.as_str(), new.if2.as_str()] {
             let if_status = Command::new("ip")
                 .args(["link", "show", "dev", if_name])
@@ -46,6 +47,14 @@ impl Testbed {
             }
         }
 
+        println!("Creating new interfaces");
+        let _ = Command::new("ip")
+            .args([
+                "link", "add", "dev", new.if1.as_str(), "type", "veth",
+                "peer", "name", new.if2.as_str()
+            ])
+            .status();
+
         // attach interfaces to namespaces
         for if_ns in [
             (new.if1.as_str(),&new.ns1),
@@ -56,7 +65,8 @@ impl Testbed {
             let _ = Command::new("ip")
                 .args(["link", "set", "dev", if_name, "netns", if_ns])
                 .status()
-                .expect("Failed attaching {} to netns {}",);
+                .expect(format!("Failed attaching {} to netns {}",
+                        if_name, if_ns).as_str());
         }
         
         // finally set interfaces UP

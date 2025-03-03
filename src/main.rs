@@ -8,6 +8,7 @@ mod download_test;
 mod testbed;
 mod trace;
 mod webserver;
+mod downloader;
 
 /// Emulator for packet loss caused by bridges
 #[derive(Parser, Debug)]

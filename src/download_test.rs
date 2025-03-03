@@ -4,10 +4,12 @@ use tokio::runtime::Runtime;
 use std::path::Path;
 use fork::{fork, Fork};
 use std::process::exit;
+use std::fmt;
 
 use crate::trace;
 use crate::webserver;
 use crate::testbed;
+use crate::downloader;
 
 pub fn run_test(rdr: &mut Reader<File>, file: String) {
     if !Path::new(file.as_str()).is_file() {
@@ -26,10 +28,32 @@ pub fn run_test(rdr: &mut Reader<File>, file: String) {
 
             exit(0); // just assume it was a success
         }
-        Ok(Fork::Parent(child)) => println!("Spawned child with pid: {}", child),
-        Err(_) => eprintln!("Spawing webserver failed!")
+        Ok(Fork::Parent(child)) => println!("Spawned webserver process with pid: {}", child),
+        Err(_) => eprintln!("Spawning webserver failed!")
     }
 
+    // start a download in a child process in namespace 2
+    match fork() {
+        Ok(Fork::Child) => {
+            let _ = testbed.ns2.run(|_| {
+                let file_name = Path::new(file.as_str())
+                    .file_name().unwrap();
+                let url = String::from(
+                    format!("http://{}:{}/{}",
+                        testbed.addr1.as_str().split("/").next().unwrap(),
+                        "8000",
+                        file_name.to_str().unwrap()
+                        ));
+                let _ = downloader::download(url.as_str());
+            });
+
+            exit(0); // just assume it was a success
+        }
+        Ok(Fork::Parent(child)) => println!("Spawned downloader process with pid: {}", child),
+        Err(_) => eprintln!("Spawning downloader failed!")
+    }
+
+    // start playback of the trace
     trace::run_trace(rdr, &testbed);
 
     // destroy the testbed
