@@ -31,6 +31,7 @@ In case of `No distribution data for pareto (/lib/tc/pareto.dist: No such file o
   - [ ] upload
   - [ ] streaming (essentially rate limited download)
   - [ ] launcher for external app
+- [ ] Auto generate data stream
 - [x] cli
   - [x] scenario selection
   - [x] file selection
