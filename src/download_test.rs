@@ -53,7 +53,9 @@ pub fn run_test(rdr: &mut Reader<File>, file: String) {
     }
 
     // start playback of the trace
-    trace::run_trace(rdr, &testbed);
+    let _ = testbed.ns2.run(|_| {
+        Runtime::new().unwrap().block_on(trace::run_trace(rdr, testbed.if2.clone()));
+    });
 
     // destroy the testbed
     testbed.destroy();
