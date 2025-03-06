@@ -1,75 +1,55 @@
 use csv::Reader;
-use netns_rs::NetNs;
 use std::fs::File;
 use std::str::FromStr;
-use std::process::{Command, ExitStatus, exit};
+use std::process::exit;
 use std::time::Duration;
 
-use crate::testbed::Testbed;
+use crate::rtnetlink_utils::get_interface_id_by_name;
+use crate::rtnetlink_utils::replace_interface_qdisc_netem;
+use crate::rtnetlink_utils::get_distribution;
 
+/// relative_time entry in the trace csv
 const CSV_IDX_REL_TIME: usize = 0;
+
+/// loss entry in the trace csv
 const CSV_IDX_LOSS: usize = 1;
 
-fn cmd_in_net_ns(ns: &NetNs, cmd: &[&str]) -> ExitStatus {
-    ns.run(|_| {
-        Command::new(&cmd[0])
-            .args(&cmd[1..])
-            .status()
-            .expect("Failed running command in network namespace")
-    }).unwrap()
-}
+/**
+ * Start playback of the loss trace
+ * @param rdr        csv::Reader for the trace
+ * @param interface  Name of the interface the trace should run on
+ */ 
+pub async fn run_trace(rdr: &mut Reader<File>, interface: String) {
+    // setup handle and connection for rtnetlink stuff
+    let (connection, handle, _) = rtnetlink::new_connection().unwrap();
+    tokio::spawn(connection);
 
-fn init_default_state(ns: &NetNs, interface: &str) {
-    let status = cmd_in_net_ns(ns, 
-        &["tc", "qdisc", "add", "dev", interface, "root", "netem",
-        "rate", "300mbit",
-        "loss", "0%",
-        "delay", "36ms", "33ms",
-        "distribution", "pareto",
-        "seed", "42",
-        "limit", "100000"]);
-    if !status.success() {
-        println!("Setting initial loss failed - \
-            does qdisc already exist on {}?", interface);
-    }
-    println!("Initial loss set to 0% ({status})");
-}
+    let distribution = get_distribution(String::from("/lib64/tc/pareto.dist"))
+        .await
+        .expect("Failed to get distribution data");
 
-fn set_default_state(ns: &NetNs, interface: &str) {
-    let status = cmd_in_net_ns(ns, 
-        &["tc", "qdisc", "replace", "dev", interface, "root", "netem",
-        "rate", "300mbit",
-        "loss", "0%",
-        "delay", "36ms", "33ms",
-        "distribution", "pareto",
-        "seed", "42",
-        "limit", "100000"]);
-    println!("Loss set to 0% ({status})");
-}
+    // get interface ids
+    let if_id = get_interface_id_by_name(handle.clone(), interface.clone())
+        .await.unwrap();
 
-fn set_bridge_state(ns: &NetNs, interface: &str) {
-    let status = cmd_in_net_ns(ns, 
-        &["tc", "qdisc", "replace", "dev", interface, "root", "netem",
-        "rate", "300mbit",
-        "loss", "100%",
-        "delay", "36ms", "33ms",
-        "distribution", "pareto",
-        "seed", "42",
-        "limit", "100000"]);
-    println!("Loss set to 100% ({status})");
-}
-
-
-pub fn run_trace(rdr: &mut Reader<File>, testbed: &Testbed) {
-    init_default_state(&testbed.ns2, &testbed.if2);
+    // initial state
+    replace_interface_qdisc_netem(
+        handle.clone(),
+        if_id,
+        1000,
+        0,
+        37_500_000, // 300 mbit/s
+        50_000_000, // 50 ms
+        10_000_000,  // 10 ms
+        distribution.clone()
+    ).await.unwrap();
 
     // cycle through each entry in the csv and toggle netem accordingly
     let mut iter = rdr.records().peekable();
     let mut line = 1; // start at 1 due to header
-    while iter.peek().is_some() {
-        let result = iter.next().unwrap();
-        line += 1;
+    while let Some(result) = iter.next() {
         let record = result.unwrap();
+        line += 1;
         let relative_time = f32::from_str(&record[CSV_IDX_REL_TIME])
             .unwrap_or_else(|_| {
                 eprintln!("Could not parse f32 from: {} on line {}",
@@ -78,9 +58,27 @@ pub fn run_trace(rdr: &mut Reader<File>, testbed: &Testbed) {
             });
         let lost = &record[CSV_IDX_LOSS];
 
-        match lost.into() {
-            "True" => set_bridge_state(&testbed.ns2, "veth2"),
-            "False" => set_default_state(&testbed.ns2, "veth2"),
+        let _ = match lost.into() {
+            "True" => replace_interface_qdisc_netem(
+                        handle.clone(),
+                        if_id,
+                        1000,
+                        100,
+                        37_500_000, // 300 mbit/s
+                        50_000_000, // 50 ms
+                        10_000_000,  // 10 ms
+                        distribution.clone()
+                    ).await,
+            "False" => replace_interface_qdisc_netem(
+                        handle.clone(),
+                        if_id,
+                        1000,
+                        0,
+                        37_500_000, // 300 mbit/s
+                        50_000_000, // 50 ms
+                        10_000_000,  // 10 ms
+                        distribution.clone()
+                    ).await,
             _ => {
                 eprintln!("Could not parse True/False from: {}", lost);
                 exit(1);
