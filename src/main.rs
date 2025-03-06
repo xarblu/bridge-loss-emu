@@ -9,6 +9,7 @@ mod testbed;
 mod trace;
 mod webserver;
 mod downloader;
+mod rtnetlink_utils;
 
 /// Emulator for packet loss caused by bridges
 #[derive(Parser, Debug)]
