@@ -76,6 +76,11 @@ pub async fn replace_interface_qdisc_netem(
     distribution: Vec<i16>
     
 ) -> Result<(), String> {
+    // argument constraints
+    if loss > 100 {
+        return Err(format!("Loss value {} not in range [0..100]", loss));
+    }
+
     let mut request = handle
         .qdisc()
         .replace(interface_id as i32)
@@ -212,7 +217,12 @@ pub async fn replace_interface_qdisc_netem(
     request.message_mut().attributes.push(TcAttribute::Options(options));
     let _ = request.execute().await.map_err(|e| e.to_string())?;
 
-    println!("Successfully set qdisc");
+    // print status
+    println!("Successfully set qdisc with params \
+        limit: {} pkts, loss: {}%, rate: {} byte/s, \
+        latency: {} ns, jitter: {} ns",
+        limit, loss, rate, latency, jitter
+    );
     Ok(())
 }
 
@@ -245,7 +255,6 @@ pub async fn get_distribution(
         // collect entries
         let mut entries = line.split_whitespace();
         while let Some(entry) = entries.next() {
-            println!("{}", entry);
             if data.len() >= MAX_DIST {
                 return Err(format!(
                         "Too much data in {}, got {} entries, max is {}",
