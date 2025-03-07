@@ -1,7 +1,6 @@
 use csv::Reader;
 use std::fs::File;
 use tokio::runtime::Runtime;
-use std::path::Path;
 use fork::{fork, Fork};
 use std::process::exit;
 
@@ -10,11 +9,7 @@ use crate::webserver;
 use crate::testbed;
 use crate::downloader;
 
-pub fn run_test(rdr: &mut Reader<File>, file: String) {
-    if !Path::new(file.as_str()).is_file() {
-        eprintln!("File {} is not a regular file", file);
-    }
-
+pub fn run_test(rdr: &mut Reader<File>) {
     // setup testbed
     let testbed = testbed::Testbed::new();
 
@@ -22,7 +17,7 @@ pub fn run_test(rdr: &mut Reader<File>, file: String) {
     match fork() {
         Ok(Fork::Child) => {
             let _ = testbed.ns1.run(|_| {
-                Runtime::new().unwrap().block_on(webserver::host_file(file));
+                Runtime::new().unwrap().block_on(webserver::rocket_main());
             });
 
             exit(0); // just assume it was a success
@@ -35,13 +30,11 @@ pub fn run_test(rdr: &mut Reader<File>, file: String) {
     match fork() {
         Ok(Fork::Child) => {
             let _ = testbed.ns2.run(|_| {
-                let file_name = Path::new(file.as_str())
-                    .file_name().unwrap();
                 let url = String::from(
                     format!("http://{}:{}/{}",
                         testbed.addr1.as_str().split("/").next().unwrap(),
                         "8000",
-                        file_name.to_str().unwrap()
+                        "infinite-data"
                         ));
                 let _ = Runtime::new().unwrap().block_on(downloader::download(url.as_str()));
             });

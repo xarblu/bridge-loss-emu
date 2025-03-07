@@ -1,18 +1,21 @@
-use rocket::fs::FileServer;
-use std::path::Path;
+use rocket::{routes, get};
+use rocket::response::stream::ByteStream;
 
-pub async fn host_file(file: String) -> () {
-    let path = Path::new(file.as_str())
-        .canonicalize().unwrap();
+/// generate an infinite stream of 4KiB blocks as fast as possible
+/// rng would be nice but is too slow and keeps the thread at 100% cpu
+#[get("/infinite-data")]
+fn infinite_data() -> ByteStream![[u8; 4096]] {
+    ByteStream! {
+        loop {
+            yield [255u8; 4096];
+        }
+    }
+}
 
-    // stable rocket doesn't support hosting individual files yet
-    // TODO should listen on all addresses by default since we talk across namespaces
-    // for now requires ROCKET_ADDRESS=0.0.0.0
-    let dir_name = path.parent().unwrap();
-    println!("FileServer root: {}", dir_name.to_str().unwrap());
-    let server = FileServer::from(dir_name);
+/// setup and launch rocket
+pub async fn rocket_main() {
     let _ = rocket::build()
-        .mount("/", server)
+        .mount("/", routes![infinite_data])
         .launch()
         .await;
 }

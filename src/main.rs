@@ -30,12 +30,7 @@ struct Args {
 #[command()]
 enum Test {
     /// Download Test
-    #[command()]
-    Download {
-        /// File used in the download test
-        #[arg(short, long)]
-        dl_test_file: String,
-    },
+    Download,
     /// Upload Test
     Upload,
     /// Stream Test
@@ -61,10 +56,10 @@ fn main() {
 
     // setup test
     match args.test {
-        Test::Download { dl_test_file: file } => {
-            download_test::run_test(&mut rdr, file);},
+        Test::Download => download_test::run_test(&mut rdr),
         Test::Upload => {eprintln!("Not implemented"); exit(1);},
         Test::Stream => {eprintln!("Not implemented"); exit(1);},
     }
 
+    exit(0);
 }
