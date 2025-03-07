@@ -4,10 +4,10 @@ use tokio::runtime::Runtime;
 use fork::{fork, Fork};
 use std::process::exit;
 
-use crate::trace;
-use crate::webserver;
 use crate::testbed;
-use crate::downloader;
+use crate::trace;
+use crate::webclient;
+use crate::webserver;
 
 pub fn run_test(rdr: &mut Reader<File>) {
     // setup testbed
@@ -36,13 +36,13 @@ pub fn run_test(rdr: &mut Reader<File>) {
                         "8000",
                         "infinite-data"
                         ));
-                let _ = Runtime::new().unwrap().block_on(downloader::download(url.as_str()));
+                let _ = Runtime::new().unwrap().block_on(webclient::download(url.as_str()));
             });
 
             exit(0); // just assume it was a success
         }
-        Ok(Fork::Parent(child)) => println!("Spawned downloader process with pid: {}", child),
-        Err(_) => eprintln!("Spawning downloader failed!")
+        Ok(Fork::Parent(child)) => println!("Spawned webclient process with pid: {}", child),
+        Err(_) => eprintln!("Spawning webclient failed!")
     }
 
     // start playback of the trace
