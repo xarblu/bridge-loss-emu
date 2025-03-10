@@ -281,6 +281,7 @@ const MAX_DIST: usize = 16*1024;
 
 /**
  * Parse a iproute2 distribution file into a vector of numbers
+ * essentially a port of https://github.com/iproute2/iproute2/blob/v6.13.0/tc/q_netem.c#L125
  * @param path  Path to distribution file e.g. /lib64/tc/pareto.dist
  */
 pub async fn get_distribution(
