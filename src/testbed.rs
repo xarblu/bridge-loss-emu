@@ -31,7 +31,7 @@ impl Testbed {
             addr2: String::from("10.0.0.2/24"),
         };
         
-        // delete interfaces if they exist then create bew ones
+        // delete interfaces if they exist then create new ones
         for if_name in [new.if1.as_str(), new.if2.as_str()] {
             let if_status = Command::new("ip")
                 .args(["link", "show", "dev", if_name])
@@ -80,7 +80,7 @@ impl Testbed {
             });
         }
 
-        // return Testbaed
+        // return Testbed
         new
     }
 

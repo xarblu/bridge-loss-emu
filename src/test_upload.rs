@@ -1,6 +1,5 @@
 use csv::Reader;
 use std::fs::File;
-use tokio::runtime::Runtime;
 use fork::{fork, Fork};
 use std::process::exit;
 use nix::unistd::Pid;
@@ -20,7 +19,8 @@ pub fn run_test(rdr: &mut Reader<File>) {
     match fork() {
         Ok(Fork::Child) => {
             let _ = testbed.ns1.run(|_| {
-                Runtime::new().unwrap().block_on(webserver::rocket_main());
+                let rt = tokio::runtime::Runtime::new().unwrap();
+                rt.block_on(webserver::rocket_main());
             });
 
             exit(0); // just assume it was a success
@@ -37,13 +37,13 @@ pub fn run_test(rdr: &mut Reader<File>) {
     match fork() {
         Ok(Fork::Child) => {
             let _ = testbed.ns2.run(|_| {
-                let url = String::from(
-                    format!("http://{}:{}/{}",
+                let url = format!("http://{}:{}/{}",
                         testbed.addr1.as_str().split("/").next().unwrap(),
                         "8000",
                         "infinite-data"
-                        ));
-                let _ = Runtime::new().unwrap().block_on(webclient::upload(url.as_str()));
+                        );
+                let rt = tokio::runtime::Runtime::new().unwrap();
+                rt.block_on(webclient::upload(url.clone())).unwrap();
             });
 
             exit(0); // just assume it was a success
@@ -57,7 +57,8 @@ pub fn run_test(rdr: &mut Reader<File>) {
 
     // start playback of the trace
     let _ = testbed.ns2.run(|_| {
-        Runtime::new().unwrap().block_on(trace::run_trace(rdr, testbed.if2.clone()));
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(trace::run_trace(rdr, testbed.if2.clone()));
     });
 
     // cleanup when trace is done

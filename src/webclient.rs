@@ -1,8 +1,7 @@
 use futures::StreamExt;
 use std::time::{SystemTime, Duration};
-use std::str;
 
-pub async fn download(url: &str) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn download(url: String) -> Result<(), Box<dyn std::error::Error>> {
     println!("Downloading from {}", url);
 
     let response = reqwest::Client::new()
@@ -51,7 +50,7 @@ pub async fn download(url: &str) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-pub async fn upload(url: &str) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn upload(url: String) -> Result<(), Box<dyn std::error::Error>> {
     println!("Uploading to {}", url);
 
     // async stream generating an infinite amount of 4KiB chunks

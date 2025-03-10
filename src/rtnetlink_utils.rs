@@ -227,6 +227,31 @@ pub async fn replace_interface_qdisc_netem(
 }
 
 /**
+ * Replace/Create a default fq_codel on interface
+ * @param handle        Handle for rtnetlink
+ * @param interface_id  ID of the interface
+ */
+pub async fn replace_interface_qdisc_fq_codel(
+    handle: Handle,
+    interface_id: u32
+) -> Result<(), String> {
+    let mut request = handle
+        .qdisc()
+        .replace(interface_id as i32)
+        .root();
+
+    request.message_mut().attributes.push(
+        TcAttribute::Kind(String::from("fq_codel")));
+
+    // make request
+    let _ = request.execute().await.map_err(|e| e.to_string())?;
+
+    // print status
+    println!("Successfully set qdisc to default fq_codel");
+    Ok(())
+}
+
+/**
  * Upper bound on size of distribution
  * really (TCA_BUF_MAX - other headers) / sizeof (__s16)
  */

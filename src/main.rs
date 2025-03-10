@@ -6,6 +6,7 @@ use users::get_effective_uid;
 // modules
 mod test_download;
 mod test_upload;
+mod test_host;
 mod testbed;
 mod trace;
 mod webserver;
@@ -35,7 +36,14 @@ enum Test {
     /// Upload Test
     Upload,
     /// Stream Test
-    Stream
+    Stream,
+    /// Play trace on a host interface
+    /// WARNING: this will replace your current qdisc
+    Host {
+        /// Host interface to be used for trace playback
+        #[arg(short, long)]
+        interface: String
+    }
 }
 
 fn main() {
@@ -60,6 +68,9 @@ fn main() {
         Test::Download => test_download::run_test(&mut rdr),
         Test::Upload => test_upload::run_test(&mut rdr),
         Test::Stream => {eprintln!("Not implemented"); exit(1);},
+        Test::Host {
+            interface: iface
+        } => test_host::run_test(&mut rdr, iface.clone()),
     }
 
     exit(0);

@@ -7,6 +7,7 @@ edition = "2024"
 async-stream = "0.3.6"
 clap = { version = "4.5.31", features = ["derive"] }
 csv = "1.3.1"
+ctrlc = { version = "3.4.5", features = ["termination"] }
 fork = "0.2.0"
 futures = "0.3.31"
 futures-core = "0.3.31"
