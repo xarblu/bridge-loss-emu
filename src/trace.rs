@@ -5,7 +5,7 @@ use std::process::exit;
 use std::time::Duration;
 
 use crate::rtnetlink_utils::get_interface_id_by_name;
-use crate::rtnetlink_utils::replace_interface_qdisc_netem;
+use crate::rtnetlink_utils::qdisc_netem;
 use crate::rtnetlink_utils::get_distribution;
 
 /// relative_time entry in the trace csv
@@ -38,9 +38,10 @@ pub async fn run_trace(
         .await.unwrap();
 
     // initial state
-    replace_interface_qdisc_netem(
+    qdisc_netem(
         handle.clone(),
         if_id,
+        false,
         1000,
         0,
         37_500_000, // 300 mbit/s
@@ -64,9 +65,10 @@ pub async fn run_trace(
         let lost = &record[CSV_IDX_LOSS];
 
         let _ = match lost.into() {
-            "True" => replace_interface_qdisc_netem(
+            "True" => qdisc_netem(
                         handle.clone(),
                         if_id,
+                        true,
                         1000,
                         100,
                         37_500_000, // 300 mbit/s
@@ -74,9 +76,10 @@ pub async fn run_trace(
                         10_000_000,  // 10 ms
                         distribution.clone()
                     ).await,
-            "False" => replace_interface_qdisc_netem(
+            "False" => qdisc_netem(
                         handle.clone(),
                         if_id,
+                        true,
                         1000,
                         0,
                         37_500_000, // 300 mbit/s

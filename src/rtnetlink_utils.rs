@@ -78,39 +78,49 @@ const TCA_NETEM_SLOT: u16 = 12;
 // const TCA_NETEM_PRNG_SEED: u16 = 14;
 
 /**
- * Replace/Create a netem qdisc on interface
+ * Common netem qdisc handler
  * @param handle        Handle for rtnetlink
  * @param interface_id  ID of the interface
+ * @param inplace       Change qdiscc inplace
+ *                      this requires handle to be the same as existing
  * @param limit         Limit for packets in queue
  * @param loss          Loss rate in percent (0-100)
  * @param rate          Rate limit in byte/s
  * @param latency       Added delay in ns
  * @param jitter        Jitter for delay in ns
  */
-pub async fn replace_interface_qdisc_netem(
+pub async fn qdisc_netem(
     handle: Handle,
     interface_id: u32,
+    inplace: bool,
     limit: u32,
     loss: u32,
     rate: u64,
     latency: i64,
     jitter: i64,
     distribution: Vec<i16>
-    
 ) -> Result<(), String> {
     // argument constraints
     if loss > 100 {
         return Err(format!("Loss value {} not in range [0..100]", loss));
     }
 
-    let mut request = handle
+    let mut request = if inplace {
+        handle
+        .qdisc()
+        .change(interface_id as i32)
+        .root()
+    } else {
+        handle
         .qdisc()
         .replace(interface_id as i32)
-        .root();
+        .root()
 
+    };
+
+    // add qdisc kind
     request.message_mut().attributes.push(
         TcAttribute::Kind(String::from("netem")));
-
 
     // add options
     let mut options: Vec<TcOption> = Vec::new();
@@ -240,11 +250,12 @@ pub async fn replace_interface_qdisc_netem(
     let _ = request.execute().await.map_err(|e| e.to_string())?;
 
     // print status
-    println!("Successfully set qdisc with params \
+    println!("Successfully changed qdisc with params \
         limit: {} pkts, loss: {}%, rate: {} byte/s, \
         latency: {} ns, jitter: {} ns",
         limit, loss, rate, latency, jitter
     );
+
     Ok(())
 }
 
