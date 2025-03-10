@@ -30,7 +30,11 @@ async fn cleanup(interface: String) {
  * @param rdr        CSV reader of the trace file
  * @param unterface  Interface name used for trace playback
  */
-pub fn run_test(rdr: &mut Reader<File>, interface: String) {
+pub fn run_test(
+    rdr: &mut Reader<File>,
+    distribution_file: Option<String>,
+    interface: String
+) {
     // shutdown handler
     let iface = interface.clone();
     ctrlc::set_handler(move || {
@@ -41,7 +45,7 @@ pub fn run_test(rdr: &mut Reader<File>, interface: String) {
 
     // start playback of the trace
     let rt = tokio::runtime::Runtime::new().unwrap();
-    rt.block_on(trace::run_trace(rdr, interface.clone()));
+    rt.block_on(trace::run_trace(rdr, distribution_file.clone(), interface.clone()));
 
     // cleanup when trace is done
     println!("Reached end of trace - shutting down");

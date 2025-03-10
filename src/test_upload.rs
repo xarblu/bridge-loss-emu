@@ -10,7 +10,10 @@ use crate::trace;
 use crate::webclient;
 use crate::webserver;
 
-pub fn run_test(rdr: &mut Reader<File>) {
+pub fn run_test(
+    rdr: &mut Reader<File>,
+    distribution_file: Option<String>
+) {
     // setup testbed
     let testbed = testbed::Testbed::new();
 
@@ -58,7 +61,7 @@ pub fn run_test(rdr: &mut Reader<File>) {
     // start playback of the trace
     let _ = testbed.ns2.run(|_| {
         let rt = tokio::runtime::Runtime::new().unwrap();
-        rt.block_on(trace::run_trace(rdr, testbed.if2.clone()));
+        rt.block_on(trace::run_trace(rdr, distribution_file.clone(), testbed.if2.clone()));
     });
 
     // cleanup when trace is done

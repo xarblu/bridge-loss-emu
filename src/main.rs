@@ -21,6 +21,11 @@ struct Args {
     #[arg(id = "file", short, long)]
     trace_file: String,
 
+    /// Path to a delay distribution file
+    /// Defaults to /lib64/tc/pareto.dist
+    #[arg(id = "distribution", short, long)]
+    distribution_file: Option<String>,
+
     /// Test to run
     #[command(subcommand)]
     test: Test,
@@ -65,12 +70,16 @@ fn main() {
 
     // setup test
     match args.test {
-        Test::Download => test_download::run_test(&mut rdr),
-        Test::Upload => test_upload::run_test(&mut rdr),
-        Test::Stream => {eprintln!("Not implemented"); exit(1);},
+        Test::Download => test_download::run_test(
+            &mut rdr, args.distribution_file.clone()),
+        Test::Upload => test_upload::run_test(
+            &mut rdr, args.distribution_file.clone()),
+        Test::Stream =>
+            {eprintln!("Not implemented"); exit(1);},
         Test::Host {
             interface: iface
-        } => test_host::run_test(&mut rdr, iface.clone()),
+        } => test_host::run_test(
+            &mut rdr, args.distribution_file.clone(), iface.clone()),
     }
 
     exit(0);

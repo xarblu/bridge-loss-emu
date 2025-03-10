@@ -19,12 +19,17 @@ const CSV_IDX_LOSS: usize = 1;
  * @param rdr        csv::Reader for the trace
  * @param interface  Name of the interface the trace should run on
  */ 
-pub async fn run_trace(rdr: &mut Reader<File>, interface: String) {
+pub async fn run_trace(
+    rdr: &mut Reader<File>,
+    distribution_file: Option<String>,
+    interface: String
+) {
     // setup handle and connection for rtnetlink stuff
     let (connection, handle, _) = rtnetlink::new_connection().unwrap();
     tokio::spawn(connection);
 
-    let distribution = get_distribution(String::from("/lib64/tc/pareto.dist"))
+    let distribution = get_distribution(
+        distribution_file.unwrap_or(String::from("/lib64/tc/pareto.dist")))
         .await
         .expect("Failed to get distribution data");
 
