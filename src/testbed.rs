@@ -31,7 +31,7 @@ impl Testbed {
             addr2: String::from("10.0.0.2/24"),
         };
         
-        // delete interfaces if they existm then create bew ones
+        // delete interfaces if they exist then create bew ones
         for if_name in [new.if1.as_str(), new.if2.as_str()] {
             let if_status = Command::new("ip")
                 .args(["link", "show", "dev", if_name])
@@ -47,28 +47,17 @@ impl Testbed {
             }
         }
 
-        println!("Creating new interfaces");
+        println!("Creating new interfaces in network namespaces");
         let _ = Command::new("ip")
             .args([
-                "link", "add", "dev", new.if1.as_str(), "type", "veth",
-                "peer", "name", new.if2.as_str()
+                "link", "add", "dev", new.if1.as_str(),
+                "netns", &new.ns1.path().file_name().unwrap().to_str().unwrap(),
+                "type", "veth",
+                "peer", "name", new.if2.as_str(),
+                "netns", &new.ns2.path().file_name().unwrap().to_str().unwrap(),
             ])
             .status();
 
-        // attach interfaces to namespaces
-        for if_ns in [
-            (new.if1.as_str(),&new.ns1),
-            (new.if2.as_str(),&new.ns2) ] {
-            let if_name = if_ns.0;
-            let if_ns = &if_ns.1.path().file_name().unwrap().to_str().unwrap();
-
-            let _ = Command::new("ip")
-                .args(["link", "set", "dev", if_name, "netns", if_ns])
-                .status()
-                .expect(format!("Failed attaching {} to netns {}",
-                        if_name, if_ns).as_str());
-        }
-        
         // finally set interfaces UP
         for spec in [
             &(new.if1.as_str(), &new.ns1, new.addr1.as_str()), 
