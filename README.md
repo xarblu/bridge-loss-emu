@@ -28,11 +28,13 @@ In case of `No distribution data for pareto (/lib/tc/pareto.dist: No such file o
 - [ ] tshark packet capture
 - [ ] emulation scenarios
   - [x] download
-  - [ ] upload
+  - [x] upload
   - [ ] streaming (essentially rate limited download)
   - [ ] launcher for external app
-- [ ] Auto generate data stream
+- [x] Auto generate data stream
 - [x] cli
   - [x] scenario selection
   - [x] file selection
-- [ ] change netem params directly e.g. via sysfs (if possible)
+- [x] change netem params directly e.g. via sysfs (if possible)
+      Now uses a forked version of the `rtnetlink` crate with custom messages
+      (see `src/rtnetlink_utils.rs`)
