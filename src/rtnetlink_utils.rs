@@ -16,30 +16,52 @@ use std::str::FromStr;
  * @param name    Name of the interface
  */
 pub async fn get_interface_id_by_name(handle: Handle, name: String) -> Result<u32, String> {
-    let mut response = handle
+    let mut stream = handle
         .link()
         .get()
         .match_name(name.clone())
         .execute();
 
-    let mut link_index = None;
-    while let Some(msg) = response.try_next().await.unwrap() {
-        // convert LinkMessage to LinkMessageBuffer via intermediate buffer
-        // there's probably a better way to do this but I couldn't find it
-        let mut buf = vec![0; msg.buffer_len()];
-        msg.emit(&mut buf);
-        let msgbuf = LinkMessageBuffer::new(buf);
-        link_index = Some(msgbuf.link_index());
+    // first response is the requested index
+    let response = stream.try_next().await;
+    if response.is_err() {
+        return Err(format!("RTNetlink error during lookup of interface {}",
+                name.clone()));
+    }
+    // seems like this is never hit and non-present interface names
+    // just throw an rtnetlink error 
+    // but for completeness let's just keep this here
+    if response.clone().is_ok_and(|x| x.is_none()) {
+        return Err(format!("Could not find interface {}",
+                name.clone()));
     }
 
-    if link_index.is_none() {
-        return Err(format!("Could not find interface {}", name.clone()));
+    // convert LinkMessage to LinkMessageBuffer via intermediate buffer
+    // there's probably a better way to do this but I couldn't find it
+    let msg = response.unwrap().unwrap();
+    let mut buf = vec![0; msg.buffer_len()];
+    msg.emit(&mut buf);
+    let msgbuf = LinkMessageBuffer::new(buf);
+    let link_index = msgbuf.link_index();
+
+    // the stream should now be empty, if not bail out
+    let response = stream.try_next().await;
+    if response.is_ok_and(|x| x.is_some()) {
+        return Err(format!("Unexpected response during lookup of interface {}",
+                name.clone()));
     }
-    Ok(link_index.unwrap())
+
+    Ok(link_index)
 }
 
 
-// from /usr/include/linux/pkt_sched.h
+/**
+ * consts from /include/uapi/linux/pkt_sched.h
+ * in the linux source tree
+ * these map to the "kind" of nla message
+ */
+
+const TCA_NETEM_UNSPEC: u16 = 0;
 const TCA_NETEM_CORR: u16 = 1;
 const TCA_NETEM_DELAY_DIST: u16 = 2;
 const TCA_NETEM_REORDER: u16 = 3;
@@ -101,7 +123,7 @@ pub async fn replace_interface_qdisc_netem(
     // /net/sched/sch_netem.c
 
     // tc_netem_qopt
-    let kind = 0;
+    let kind = TCA_NETEM_UNSPEC;
     let mut value = vec![0; 20];
     //__u32	latency;	/* added delay (us) */
     // 1st in tc_netem_qopts struct but not parsed?
