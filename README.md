@@ -38,3 +38,4 @@ In case of `No distribution data for pareto (/lib/tc/pareto.dist: No such file o
 - [x] change netem params directly e.g. via sysfs (if possible)
       Now uses a forked version of the `rtnetlink` crate with custom messages
       (see `src/rtnetlink_utils.rs`)
+- [ ] setup testbed interfaces directly via `rtnetlink` crate
