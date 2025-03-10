@@ -4,7 +4,8 @@ use clap::{Parser, Subcommand};
 use users::get_effective_uid;
 
 // modules
-mod download_test;
+mod test_download;
+mod test_upload;
 mod testbed;
 mod trace;
 mod webserver;
@@ -56,8 +57,8 @@ fn main() {
 
     // setup test
     match args.test {
-        Test::Download => download_test::run_test(&mut rdr),
-        Test::Upload => {eprintln!("Not implemented"); exit(1);},
+        Test::Download => test_download::run_test(&mut rdr),
+        Test::Upload => test_upload::run_test(&mut rdr),
         Test::Stream => {eprintln!("Not implemented"); exit(1);},
     }
 
