@@ -57,6 +57,37 @@ impl Trace {
             }
         }
 
+        // reconfigurations every 15s
+        let mut reconf_timestamp = 0.0f32;
+        let max_timestamp = trace.last().unwrap().timestamp;
+        let mut trace_idx = 0;
+        let reconf_duration = 0.1;
+        while reconf_timestamp < max_timestamp {
+            while trace[trace_idx].timestamp < reconf_timestamp {
+                trace_idx += 1;
+            }
+
+            // reconf loss is either existing loss (e.g. bridge)
+            // or 50 - whatever is higher
+            let prev_loss = if trace_idx == 0 {
+                0
+            } else {
+                trace[trace_idx - 1].loss
+            };
+            let reconf_loss = std::cmp::max(50, prev_loss);
+            
+            // reconf start
+            trace.insert(trace_idx,
+                TraceEvent::new(reconf_timestamp, reconf_loss));
+            trace_idx += 1;
+            // reconf end
+            trace.insert(trace_idx,
+                TraceEvent::new(reconf_timestamp + reconf_duration, prev_loss));
+            trace_idx += 1;
+
+            reconf_timestamp += 15.0;
+        }
+
         Ok(Self { trace })
     }
 
