@@ -20,5 +20,5 @@ reqwest = { version = "0.12.12", features = ["stream"] }
 rocket = "0.5.1"
 rtnetlink = { git = "https://github.com/xarblu/rtnetlink.git", rev = "9f40b555937a87156b3c695d3e4d7090e1a7741b" }
 serde = { version = "1.0.218", features = ["derive"] }
-tokio = "1.43.0"
+tokio = { version = "1.43.0", features = ["time"] }
 users = "0.11.0"
