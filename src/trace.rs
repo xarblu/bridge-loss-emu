@@ -7,14 +7,24 @@ use crate::rtnetlink_utils::qdisc_netem;
 use crate::rtnetlink_utils::get_distribution;
 
 
+#[derive(Clone)]
 struct TraceEvent {
     timestamp: f32,
-    loss: u32
+    loss: u32,
+    latency: i64,
+    jitter: i64
 }
 
 impl TraceEvent {
-    pub fn new(timestamp: f32, loss: u32) -> Self {
-        Self { timestamp, loss }
+    /**
+     * Create a new TraceEvent
+     * @param timestamp  Reative timestamp on Trace
+     * @param loss       Loss in % (0-100)
+     * @param latency    Added latency in ns
+     * @param jitter     Jitter on latency in ns
+     */
+    pub fn new(timestamp: f32, loss: u32, latency: i64, jitter: i64) -> Self {
+        Self { timestamp, loss, latency, jitter }
     }
 }
 
@@ -23,8 +33,15 @@ struct Trace {
 }
 
 impl Trace {
+    /**
+     * Create a new Trace from CSV file Reader
+     * @param rdr  CSV file reader
+     *
+     * Currently expects format:
+     * timestamp,timeUnderBridge,speed
+     */
     pub fn new(rdr: &mut csv::Reader<File>) -> Result<Self, String> {
-        // indices from csv line
+        // CSV fields
         const CSV_IDX_TIMESTAMP: usize = 0;
         const CSV_IDX_TIME_UNDER_BRIDGE: usize = 1;
         const CSV_IDX_SPEED: usize = 2;
@@ -51,9 +68,19 @@ impl Trace {
             
             if time_under_bridge > 0.0f32 {
                 // bridge start
-                trace.push(TraceEvent::new(timestamp, 100));
+                trace.push(TraceEvent::new(
+                        timestamp,
+                        100,
+                        50_000_000, // 50 ms
+                        10_000_000 // 50 ms
+                ));
                 // bridge end
-                trace.push(TraceEvent::new(timestamp + time_under_bridge, 0));
+                trace.push(TraceEvent::new(
+                        timestamp + time_under_bridge,
+                        0,
+                        50_000_000, // 35 ms
+                        10_000_000 // 10 ms
+                ));
             }
         }
 
@@ -69,24 +96,39 @@ impl Trace {
 
             // reconf loss is either existing loss (e.g. bridge)
             // or 50 - whatever is higher
-            let prev_loss = if trace_idx == 0 {
-                0
+            let prev = if trace_idx == 0 {
+                TraceEvent::new(0.0,0,0,0)
             } else {
-                trace[trace_idx - 1].loss
+                trace[trace_idx - 1].clone()
             };
 
             let reconf_duration = 0.1;
-            let reconf_loss = std::cmp::max(50, prev_loss);
+
+            let reconf_loss = std::cmp::max(50, prev.loss);
+            let reconf_latency = 50_000_000; // 50 ms
+            let reconf_jitter = 10_000_000; // 10 ms
 
             // only change if there is a change
-            if reconf_loss != prev_loss {
+            if reconf_loss != prev.loss {
                 // reconf start
                 trace.insert(trace_idx,
-                    TraceEvent::new(reconf_timestamp, reconf_loss));
+                    TraceEvent::new(
+                        reconf_timestamp,
+                        reconf_loss,
+                        reconf_latency,
+                        reconf_jitter
+                    )
+                );
                 trace_idx += 1;
                 // reconf end
                 trace.insert(trace_idx,
-                    TraceEvent::new(reconf_timestamp + reconf_duration, prev_loss));
+                    TraceEvent::new(
+                        reconf_timestamp + reconf_duration,
+                        prev.loss,
+                        prev.latency,
+                        prev.jitter
+                    )
+                );
                 trace_idx += 1;
             }
 
@@ -96,6 +138,12 @@ impl Trace {
         Ok(Self { trace })
     }
 
+    /**
+     * Run a Trace
+     * @param distribution_file  Optional path to a distribution file
+     *                           Defaults to /lib64/tc/pareto.dist
+     * @param interface          Interface where trace should run
+     */
     pub async fn run(
         &mut self,
         distribution_file: Option<String>,
@@ -108,7 +156,7 @@ impl Trace {
         let distribution = get_distribution(
             distribution_file.unwrap_or(String::from("/lib64/tc/pareto.dist")))
             .await
-            .expect("Failed to get distribution data");
+            .expect("[trace] Failed to get distribution data");
 
         // get interface ids
         let if_id = get_interface_id_by_name(handle.clone(), interface.clone())
@@ -118,7 +166,7 @@ impl Trace {
         qdisc_netem(
             handle.clone(),
             if_id,
-            false,
+            false, // replace qdisc
             1000,
             0,
             37_500_000, // 300 mbit/s
@@ -135,12 +183,12 @@ impl Trace {
             let _ = qdisc_netem(
                 handle.clone(),
                 if_id,
-                true,
+                true, // change qdisc
                 1000,
                 event.loss,
                 37_500_000, // 300 mbit/s
-                50_000_000, // 50 ms
-                10_000_000,  // 10 ms
+                event.latency,
+                event.jitter,
                 distribution.clone()
             ).await.unwrap();
         }
