@@ -105,11 +105,14 @@ impl Trace {
             let reconf_duration = 0.1;
 
             let reconf_loss = std::cmp::max(50, prev.loss);
-            let reconf_latency = 50_000_000; // 50 ms
-            let reconf_jitter = 10_000_000; // 10 ms
+            let reconf_latency = std::cmp::max(50_000_000, prev.latency); // 50 ms
+            let reconf_jitter = std::cmp::max(10_000_000, prev.latency); // 10 ms
 
             // only change if there is a change
-            if reconf_loss != prev.loss {
+            if reconf_loss != prev.loss
+                || reconf_latency != prev.latency
+                || reconf_jitter != prev.jitter
+            {
                 // reconf start
                 trace.insert(trace_idx,
                     TraceEvent::new(
