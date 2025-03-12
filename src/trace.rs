@@ -57,11 +57,11 @@ impl Trace {
             }
         }
 
-        // reconfigurations every 15s
-        let mut reconf_timestamp = 0.0f32;
+        // reconfigurations every 15s at 12,27,42,57 second of each minute
+        // TODO: sync with actual wall clock time
+        let mut reconf_timestamp = 12.0f32;
         let max_timestamp = trace.last().unwrap().timestamp;
         let mut trace_idx = 0;
-        let reconf_duration = 0.1;
         while reconf_timestamp < max_timestamp {
             while trace[trace_idx].timestamp < reconf_timestamp {
                 trace_idx += 1;
@@ -74,16 +74,21 @@ impl Trace {
             } else {
                 trace[trace_idx - 1].loss
             };
+
+            let reconf_duration = 0.1;
             let reconf_loss = std::cmp::max(50, prev_loss);
-            
-            // reconf start
-            trace.insert(trace_idx,
-                TraceEvent::new(reconf_timestamp, reconf_loss));
-            trace_idx += 1;
-            // reconf end
-            trace.insert(trace_idx,
-                TraceEvent::new(reconf_timestamp + reconf_duration, prev_loss));
-            trace_idx += 1;
+
+            // only change if there is a change
+            if reconf_loss != prev_loss {
+                // reconf start
+                trace.insert(trace_idx,
+                    TraceEvent::new(reconf_timestamp, reconf_loss));
+                trace_idx += 1;
+                // reconf end
+                trace.insert(trace_idx,
+                    TraceEvent::new(reconf_timestamp + reconf_duration, prev_loss));
+                trace_idx += 1;
+            }
 
             reconf_timestamp += 15.0;
         }
@@ -140,6 +145,8 @@ impl Trace {
             ).await.unwrap();
         }
         
+        println!("[trace] Reached end of trace");
+
         Ok(())
     }
 }

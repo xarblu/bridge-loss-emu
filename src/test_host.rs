@@ -2,7 +2,7 @@ use csv::Reader;
 use std::fs::File;
 use std::process::exit;
 
-use crate::rtnetlink_utils::{get_interface_id_by_name,replace_interface_qdisc_fq_codel};
+use crate::rtnetlink_utils::{get_interface_id_by_name,qdisc_fq_codel};
 use crate::trace;
 
 /**
@@ -21,7 +21,7 @@ async fn cleanup(interface: String) {
         handle.clone(), interface.clone())
         .await.unwrap();
 
-    let _ = replace_interface_qdisc_fq_codel(handle, interface_id)
+    let _ = qdisc_fq_codel(handle, interface_id)
         .await.unwrap();
 }
 
@@ -48,7 +48,6 @@ pub fn run_test(
     rt.block_on(trace::run_trace(rdr, distribution_file.clone(), interface.clone()));
 
     // cleanup when trace is done
-    println!("Reached end of trace - shutting down");
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(cleanup(interface.clone()));
 }

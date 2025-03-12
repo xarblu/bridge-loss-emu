@@ -16,7 +16,7 @@ impl Testbed {
         for name in ["ns1", "ns2"] {
             let ns = NetNs::get(name);
             if ns.is_ok() {
-                println!("{} exists - recreating", name);
+                println!("[testbed] {} exists - recreating", name);
                 let _ = ns.unwrap().remove();
             }
         }
@@ -40,14 +40,14 @@ impl Testbed {
                 .status();
             
             if if_status.unwrap().success() {
-                println!("Removing existing interface {}", if_name);
+                println!("[testbed] Removing existing interface {}", if_name);
                 let _ = Command::new("ip")
                     .args(["link", "delete", "dev", if_name])
                     .status();
             }
         }
 
-        println!("Creating new interfaces in network namespaces");
+        println!("[testbed] Creating new interfaces in network namespaces");
         let _ = Command::new("ip")
             .args([
                 "link", "add", "dev", new.if1.as_str(),

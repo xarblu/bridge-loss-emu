@@ -250,9 +250,10 @@ pub async fn qdisc_netem(
     let _ = request.execute().await.map_err(|e| e.to_string())?;
 
     // print status
-    println!("Successfully changed qdisc with params \
+    println!("[qdisc][netem][{}] \
         limit: {} pkts, loss: {}%, rate: {} byte/s, \
         latency: {} ns, jitter: {} ns",
+        if inplace { "changed" } else { "replaced" },
         limit, loss, rate, latency, jitter
     );
 
@@ -264,7 +265,7 @@ pub async fn qdisc_netem(
  * @param handle        Handle for rtnetlink
  * @param interface_id  ID of the interface
  */
-pub async fn replace_interface_qdisc_fq_codel(
+pub async fn qdisc_fq_codel(
     handle: Handle,
     interface_id: u32
 ) -> Result<(), String> {
@@ -280,7 +281,7 @@ pub async fn replace_interface_qdisc_fq_codel(
     let _ = request.execute().await.map_err(|e| e.to_string())?;
 
     // print status
-    println!("Successfully set qdisc to default fq_codel");
+    println!("[qdisc][fq_codel][replaced] default");
     Ok(())
 }
 
