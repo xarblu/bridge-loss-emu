@@ -6,6 +6,7 @@ use users::get_effective_uid;
 // modules
 mod test_download;
 mod test_upload;
+mod test_stream;
 mod test_host;
 mod testbed;
 mod trace;
@@ -41,7 +42,16 @@ enum Test {
     /// Upload Test
     Upload,
     /// Stream Test
-    Stream,
+    Stream {
+        /// Video file used for the stream test
+        #[arg(id = "video", short, long)]
+        video_file: String,
+
+        /// ffmpeg style video bitrate
+        /// defaults to 5000k
+        #[arg(id = "bitrate", short, long)]
+        video_bitrate: Option<String>,
+    },
     /// Play trace on a host interface
     /// WARNING: this will replace your current qdisc
     Host {
@@ -74,8 +84,11 @@ fn main() {
             &mut rdr, args.distribution_file.clone()),
         Test::Upload => test_upload::run_test(
             &mut rdr, args.distribution_file.clone()),
-        Test::Stream =>
-            {eprintln!("Not implemented"); exit(1);},
+        Test::Stream {
+            video_file: vfile,
+            video_bitrate: vrate
+        } => test_stream::run_test(
+            &mut rdr, args.distribution_file.clone(), vfile.clone(), vrate.clone()),
         Test::Host {
             interface: iface
         } => test_host::run_test(
