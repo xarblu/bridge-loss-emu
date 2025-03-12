@@ -70,14 +70,14 @@ impl Trace {
                 // bridge start
                 trace.push(TraceEvent::new(
                         timestamp,
-                        100,
+                        100, // 100% bridge loss
                         50_000_000, // 50 ms
                         10_000_000 // 50 ms
                 ));
                 // bridge end
                 trace.push(TraceEvent::new(
                         timestamp + time_under_bridge,
-                        0,
+                        2, // 2% base loss
                         50_000_000, // 35 ms
                         10_000_000 // 10 ms
                 ));
@@ -90,6 +90,7 @@ impl Trace {
         let max_timestamp = trace.last().unwrap().timestamp;
         let mut trace_idx = 0;
         while reconf_timestamp < max_timestamp {
+            // advance index until we reached next timestamp
             while trace[trace_idx].timestamp < reconf_timestamp {
                 trace_idx += 1;
             }
