@@ -95,47 +95,80 @@ impl Trace {
                 trace_idx += 1;
             }
 
-            // reconf loss is either existing loss (e.g. bridge)
-            // or 50 - whatever is higher
-            let prev = if trace_idx == 0 {
+            // get previous event to compare against and later
+            // reset to
+            // if there was no prior event assume all values to be 0
+            // which will later always pick the bigger reconf params
+            let mut prev = if trace_idx == 0 {
                 TraceEvent::new(0.0,0,0,0)
             } else {
                 trace[trace_idx - 1].clone()
             };
 
+            // how long a reconfiguration will take
+            // this is just an arbitrary 0.1s for now
             let reconf_duration = 0.1;
 
-            let reconf_loss = std::cmp::max(50, prev.loss);
-            let reconf_latency = std::cmp::max(50_000_000, prev.latency); // 50 ms
-            let reconf_jitter = std::cmp::max(10_000_000, prev.latency); // 10 ms
+            // parameters for reconf
+            let reconf_loss = 50; // 50% loss
+            let reconf_latency = 50_000_000; // 50 ms
+            let reconf_jitter = 10_000_000; // 10 ms
 
-            // only change if there is a change
-            if reconf_loss != prev.loss
-                || reconf_latency != prev.latency
-                || reconf_jitter != prev.jitter
-            {
-                // reconf start
-                trace.insert(trace_idx,
-                    TraceEvent::new(
-                        reconf_timestamp,
-                        reconf_loss,
-                        reconf_latency,
-                        reconf_jitter
-                    )
+            // reconf start
+            // pick the worst for each param
+            // between what reconf would do and what already is present
+            // e.g. a bridge causing 100% loss will always take
+            // precedence over 50% reconf loss
+            trace.insert(trace_idx,
+                TraceEvent::new(
+                    reconf_timestamp,
+                    std::cmp::max(prev.loss, reconf_loss),
+                    std::cmp::max(prev.latency, reconf_latency),
+                    std::cmp::max(prev.jitter, reconf_jitter)
+                )
+            );
+            trace_idx += 1;
+
+            // figure out if we overlap with following events
+            let mut overlap_idx = trace_idx;
+            while trace[overlap_idx].timestamp < reconf_timestamp + reconf_duration {
+                // can't go further
+                if overlap_idx == trace.len() - 1 {
+                    break;
+                }
+                overlap_idx += 1;
+            }
+
+            // overlapping events get the max of
+            // their params and our reconf event
+            while trace_idx < overlap_idx {
+                let cur_event = trace[trace_idx].clone();
+                let new_event = TraceEvent::new(
+                    cur_event.timestamp,
+                    std::cmp::max(cur_event.loss, reconf_loss),
+                    std::cmp::max(cur_event.latency, reconf_latency),
+                    std::cmp::max(cur_event.jitter, reconf_jitter)
                 );
-                trace_idx += 1;
-                // reconf end
-                trace.insert(trace_idx,
-                    TraceEvent::new(
-                        reconf_timestamp + reconf_duration,
-                        prev.loss,
-                        prev.latency,
-                        prev.jitter
-                    )
-                );
+                trace[trace_idx] = new_event;
+                // this event becomes the new previous event for our reset
+                prev = cur_event;
                 trace_idx += 1;
             }
 
+            // reconf end
+            // this simply resets to the last known state
+            // before/during reconf
+            trace.insert(trace_idx,
+                TraceEvent::new(
+                    reconf_timestamp + reconf_duration,
+                    prev.loss,
+                    prev.latency,
+                    prev.jitter
+                )
+            );
+            trace_idx += 1;
+
+            // finally advance to next reconf
             reconf_timestamp += 15.0;
         }
 
