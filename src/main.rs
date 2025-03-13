@@ -18,7 +18,7 @@ mod rtnetlink_utils;
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
-    /// CSV file with loss trace of form relative_time,loss
+    /// CSV file with loss trace of form timestamp,lossTime
     #[arg(id = "file", short, long)]
     trace_file: String,
 
