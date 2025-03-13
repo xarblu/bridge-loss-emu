@@ -27,6 +27,10 @@ struct Args {
     #[arg(id = "distribution", short, long)]
     distribution_file: Option<String>,
 
+    /// optional tshark packet capture
+    #[arg(id = "pcap", short, long)]
+    capture_file: Option<String>,
+
     /// Test to run
     #[command(subcommand)]
     test: Test,
@@ -81,14 +85,15 @@ fn main() {
     // setup test
     match args.test {
         Test::Download => test_download::run_test(
-            &mut rdr, args.distribution_file.clone()),
+            &mut rdr, args.distribution_file.clone(), args.capture_file.clone()),
         Test::Upload => test_upload::run_test(
-            &mut rdr, args.distribution_file.clone()),
+            &mut rdr, args.distribution_file.clone(), args.capture_file.clone()),
         Test::Stream {
             video_file: vfile,
             video_bitrate: vrate
         } => test_stream::run_test(
-            &mut rdr, args.distribution_file.clone(), vfile.clone(), vrate.clone()),
+            &mut rdr, args.distribution_file.clone(), args.capture_file.clone(),
+            vfile.clone(), vrate.clone()),
         Test::Host {
             interface: iface
         } => test_host::run_test(

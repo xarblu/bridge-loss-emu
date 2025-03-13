@@ -12,7 +12,8 @@ use crate::webserver;
 
 pub fn run_test(
     rdr: &mut Reader<File>,
-    distribution_file: Option<String>
+    distribution_file: Option<String>,
+    capture_file: Option<String>,
 ) {
     // setup testbed
     let testbed = testbed::Testbed::new();
@@ -58,6 +59,32 @@ pub fn run_test(
         Err(_) => eprintln!("[test] Spawning webclient failed!")
     }
 
+    // start tshark in namespace 2
+    let mut pid_tshark = -1;
+    if let Some(capture_file) = capture_file {
+        match fork() {
+            Ok(Fork::Child) => {
+                let _ = testbed.ns2.run(|_| {
+                    let _ = std::process::Command::new("tshark")
+                        .args([
+                            "-w", capture_file.as_str(),
+                            "-i", &testbed.if2
+                        ])
+                        //.stdout(Stdio::null())
+                        .status()
+                        .expect("[test] Spawning mpv process failed");
+                });
+
+                exit(0); // just assume it was a success
+            }
+            Ok(Fork::Parent(child)) => {
+                println!("[test] Spawned mpv process with pid: {}", child);
+                pid_tshark = child;
+            },
+            Err(_) => eprintln!("[test] Spawning mpv failed!")
+        }
+    }
+
     // start playback of the trace
     let _ = testbed.ns2.run(|_| {
         let rt = tokio::runtime::Runtime::new().unwrap();
@@ -67,6 +94,9 @@ pub fn run_test(
     // cleanup when trace is done
     signal::kill(Pid::from_raw(pid_server), Signal::SIGTERM).unwrap();
     signal::kill(Pid::from_raw(pid_client), Signal::SIGTERM).unwrap();
+    if pid_tshark > 0 {
+        signal::kill(Pid::from_raw(pid_tshark), Signal::SIGTERM).unwrap();
+    }
 
     // destroy the testbed
     testbed.destroy();

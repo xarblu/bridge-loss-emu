@@ -26,7 +26,12 @@ Distribution curves for the `--distribution` argument are shipped with the `ipro
 
 ## TODO
 
-- [ ] tshark packet capture
+- [x] tshark packet capture
+      Implemented via the `--pcap <cpature file>` option
+      For some reason `tshark` requires that file to be explicitly
+      writable by the user running it - e.g. running tshark as root
+      would fail with permissions `644 nonroot`.
+      That means your capture file should be pre-created and have global write permissions: `touch capture.pcap; chmod 666 capture.pcap;`
 - [x] emulation scenarios
   - [x] download
         Implemented by spawning a `http` server that generates an
