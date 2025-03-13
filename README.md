@@ -16,21 +16,32 @@ CONFIG_NET_NS=y
 ## building
 
 To build just run `cargo build --release` in the root of the cloned repo.
+The resulting binary will be located under `target/release/bridge-loss-emu`.
 
 ## running
 
 Creating/modifying/deleting network namespaces and interfaces requires elevated privileges so the program has to be run as root.
 
-In case of `No distribution data for pareto (/lib/tc/pareto.dist: No such file or directory)` errors set the correct `TC_LIB_DIR`. `tc` seems to be somewhat broken on some distros and tries to find it under build time configured `LIBDIR/tc`.
+Distribution curves for the `--distribution` argument are shipped with the `iproute2` package and usually live under `/lib64/tc/` - but other distros might ship them different ways.
 
 ## TODO
 
 - [ ] tshark packet capture
-- [ ] emulation scenarios
+- [x] emulation scenarios
   - [x] download
+        Implemented by spawning a `http` server that generates an
+        infinite stream of data downloaded by a client
+        (no actual data is written/read from disk)
   - [x] upload
-  - [ ] streaming (essentially rate limited download)
-  - [ ] launcher for external app
+        Implemented by spawning a `http` client that generates an
+        infinite stream of data uploaded to a server
+        (no actual data is written/read from disk)
+  - [x] streaming (essentially rate limited download)
+        Implemented by serving a video via `ffmpeg` as a http server
+        and streaming from it using `mpv`.
+        This allows testing different bandwidths via transcoding.
+  - [x] ~~launcher for external app~~ host mode so users can experience
+        loss from bridges at home
 - [x] Auto generate data stream
 - [x] cli
   - [x] scenario selection
