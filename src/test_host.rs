@@ -45,7 +45,8 @@ pub fn run_test(
 
     // start playback of the trace
     let rt = tokio::runtime::Runtime::new().unwrap();
-    rt.block_on(trace::run_trace(rdr, distribution_file.clone(), interface.clone()));
+    rt.block_on(trace::run_trace(rdr, distribution_file.clone(),
+        interface.clone(), None));
 
     // cleanup when trace is done
     let rt = tokio::runtime::Runtime::new().unwrap();

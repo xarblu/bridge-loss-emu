@@ -250,9 +250,10 @@ pub async fn qdisc_netem(
     let _ = request.execute().await.map_err(|e| e.to_string())?;
 
     // print status
-    println!("[qdisc][netem][{}] \
+    println!("[qdisc][netem][{}][{}] \
         limit: {} pkts, loss: {}%, rate: {} byte/s, \
         latency: {} ns, jitter: {} ns",
+        interface_id,
         if inplace { "changed" } else { "replaced" },
         limit, loss, rate, latency, jitter
     );

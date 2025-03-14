@@ -6,6 +6,7 @@ pub struct Testbed {
     pub ns2: NetNs,
     pub if1: String,
     pub if2: String,
+    pub ifb2: String,
     pub addr1: String,
     pub addr2: String,
 }
@@ -27,12 +28,13 @@ impl Testbed {
             ns2: NetNs::new("ns2").expect("Createing ns2 failed"),
             if1: String::from("veth1"),
             if2: String::from("veth2"),
+            ifb2: String::from("ifb2"),
             addr1: String::from("10.0.0.1/24"),
             addr2: String::from("10.0.0.2/24"),
         };
         
         // delete interfaces if they exist then create new ones
-        for if_name in [new.if1.as_str(), new.if2.as_str()] {
+        for if_name in [new.if1.as_str(), new.if2.as_str(), new.ifb2.as_str()] {
             let if_status = Command::new("ip")
                 .args(["link", "show", "dev", if_name])
                 .stdout(Stdio::null())
@@ -79,6 +81,30 @@ impl Testbed {
                     .status();
             });
         }
+
+        // since qdiscs only affect outgoing traffic we need this bridge device
+        // to add netem to incoming traffic
+        println!("[testbed] Setting up ifb interface {} to handle incoming traffic for {}",
+            new.ifb2.as_str(), new.if2.as_str());
+        let _ = Command::new("ip").args([
+                "link", "add", "name", new.ifb2.as_str(),
+                "netns", &new.ns2.path().file_name().unwrap().to_str().unwrap(),
+                "type", "ifb"
+            ]).status();
+        let _ = new.ns2.run(|_| {
+            let _ = Command::new("ip").args([
+                    "link", "set", "dev", new.ifb2.as_str(), "up"
+                ]).status();
+            // redirect incoming traffic through ifb2
+            let _ = Command::new("tc").args([
+                    "qdisc", "add", "dev", new.if2.as_str(), "ingress"
+                ]).status();
+            let _ = Command::new("tc").args([
+                    "filter", "add", "dev", new.if2.as_str(), "parent", "ffff:",
+                    "protocol", "ip", "u32", "match", "u32", "0", "0", "flowid", "1:1",
+                    "action", "mirred", "egress", "redirect", "dev", new.ifb2.as_str()
+                ]).status();
+        });
 
         // return Testbed
         new
