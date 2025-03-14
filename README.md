@@ -1,6 +1,9 @@
-# WP4
+# Emulator for packet loss caused by bridges
 
-## dependecies
+This emulator is to be used in conjuction with https://github.com/CommandMC/vs-programming-lab
+where you get the trace file
+
+## dependencies
 
 ```
 rust cargo iproute2
@@ -9,8 +12,9 @@ rust cargo iproute2
 Additionally the kernel needs to be build with the following config options
 
 ```
-CONFIG_NET_SCH_NETEM=m
+CONFIG_IFB=m
 CONFIG_NET_NS=y
+CONFIG_NET_SCH_NETEM=m
 ```
 
 ## building
@@ -26,22 +30,22 @@ Distribution curves for the `--distribution` argument are shipped with the `ipro
 
 ## TODO
 
-- [x] tshark packet capture
+- [x] tshark packet capture  
       Implemented via the `--pcap <cpature file>` option
       For some reason `tshark` requires that file to be explicitly
       writable by the user running it - e.g. running tshark as root
       would fail with permissions `644 nonroot`.
       That means your capture file should be pre-created and have global write permissions: `touch capture.pcap; chmod 666 capture.pcap;`
 - [x] emulation scenarios
-  - [x] download
+  - [x] download  
         Implemented by spawning a `http` server that generates an
         infinite stream of data downloaded by a client
         (no actual data is written/read from disk)
-  - [x] upload
+  - [x] upload  
         Implemented by spawning a `http` client that generates an
         infinite stream of data uploaded to a server
         (no actual data is written/read from disk)
-  - [x] streaming (essentially rate limited download)
+  - [x] streaming (essentially rate limited download)  
         Implemented by serving a video via `ffmpeg` as a http server
         and streaming from it using `mpv`.
         This allows testing different bandwidths via transcoding.
@@ -51,7 +55,7 @@ Distribution curves for the `--distribution` argument are shipped with the `ipro
 - [x] cli
   - [x] scenario selection
   - [x] file selection
-- [x] change netem params directly e.g. via sysfs (if possible)
+- [x] change netem params directly e.g. via sysfs (if possible)  
       Now uses a forked version of the `rtnetlink` crate with custom messages
       (see `src/rtnetlink_utils.rs`)
 - [ ] setup testbed interfaces directly via `rtnetlink` crate
