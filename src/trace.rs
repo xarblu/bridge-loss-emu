@@ -51,8 +51,8 @@ impl Trace {
         trace.push(TraceEvent::new(
                 0.0,
                 2, // 2% base loss
-                50_000_000, // 35 ms
-                10_000_000 // 10 ms
+                27_600_000, // 27.6 ms GER-Highway
+                10_000_000 // 10 ms jitter
         ));
         
         let mut iter = rdr.records();
@@ -73,15 +73,15 @@ impl Trace {
             trace.push(TraceEvent::new(
                     timestamp,
                     100, // 100% loss
-                    50_000_000, // 50 ms
-                    10_000_000 // 50 ms
+                    27_600_000, // 27.6 ms GER-Highway
+                    10_000_000 // 10 ms jitter
             ));
             // loss end
             trace.push(TraceEvent::new(
                     timestamp + loss_time,
                     2, // 2% loss
-                    50_000_000, // 35 ms
-                    10_000_000 // 10 ms
+                    27_600_000, // 27.6 ms GER-Highway
+                    10_000_000 // 10 ms jitter
             ));
         }
 
@@ -122,7 +122,7 @@ impl Trace {
                 handle.clone(),
                 if_id,
                 false, // replace qdisc
-                1000,
+                1000, // pkts in queue
                 event.loss,
                 37_500_000, // 300 mbit/s
                 event.latency,
@@ -139,7 +139,7 @@ impl Trace {
                 handle.clone(),
                 if_id,
                 true, // change qdisc
-                1000,
+                1000, // pkts in queue
                 event.loss,
                 37_500_000, // 300 mbit/s
                 event.latency,
@@ -155,7 +155,7 @@ impl Trace {
 }
 
 /**
- * Convenence function to create and run a trace
+ * Convenience function to create and run a trace
  * @param rdr        csv::Reader for the trace
  * @param interface  Name of the interface the trace should run on
  */ 

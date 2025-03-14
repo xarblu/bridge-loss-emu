@@ -23,7 +23,13 @@ pub fn run_test(
     match fork() {
         Ok(Fork::Child) => {
             let _ = testbed.ns1.run(|_| {
-                let rt = tokio::runtime::Runtime::new().unwrap();
+                let rt = tokio::runtime::Builder::new_multi_thread()
+                    .thread_name("webserver")
+                    .enable_all()
+                    // increased stack size for big chunks
+                    .thread_stack_size(100 * 1024 * 1024)
+                    .build()
+                    .expect("[test] failed to create tokio runtime");
                 rt.block_on(webserver::rocket_main());
             });
 
@@ -46,7 +52,13 @@ pub fn run_test(
                         "8000",
                         "infinite-data"
                         );
-                let rt = tokio::runtime::Runtime::new().unwrap();
+                let rt = tokio::runtime::Builder::new_multi_thread()
+                    .thread_name("webclient")
+                    .enable_all()
+                    // increased stack size for big chunks
+                    .thread_stack_size(100 * 1024 * 1024)
+                    .build()
+                    .expect("[test] failed to create tokio runtime");
                 rt.block_on(webclient::download(url.clone())).unwrap();
             });
 

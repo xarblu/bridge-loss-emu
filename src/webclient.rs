@@ -1,6 +1,11 @@
 use futures::StreamExt;
 use std::time::{SystemTime, Duration};
 
+/**
+ * Downloader that fetches a stream of data from url
+ * printing stats about the transfer to the console
+ * @param url  Url to download from
+ */
 pub async fn download(url: String) -> Result<(), Box<dyn std::error::Error>> {
     println!("[webclient] Downloading from {}", url);
 
@@ -22,9 +27,9 @@ pub async fn download(url: String) -> Result<(), Box<dyn std::error::Error>> {
         let elapsed = cur_time.elapsed().unwrap();
         if elapsed >= Duration::from_secs(5) {
             // rate in mbit/s
-            let rate = ((((cur_bytes as f64) * 8.0) / 1024.0) / 1024.0) / elapsed.as_secs_f64();
-            println!("[webclient] Downloaded {} MB in {} s at rate {} Mbit/s",
-                cur_bytes / 1024 / 1024,
+            let rate = ((((cur_bytes as f64) * 8.0) / 1000.0) / 1000.0) / elapsed.as_secs_f64();
+            println!("[webclient] Downloaded {} MB in {}s at rate {} Mbit/s",
+                cur_bytes / 1000 / 1000,
                 elapsed.as_secs_f64(),
                 rate);
 
@@ -37,10 +42,18 @@ pub async fn download(url: String) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+// 4MiB chunk size
+const CHUNK_SIZE: usize = 4 * 1024 * 1024;
+
+/**
+ * Uploader that generates an infinte strem of data and POSTs it to url
+ * printing stats about the transfer to the console
+ * @param url  Url to upload to
+ */
 pub async fn upload(url: String) -> Result<(), Box<dyn std::error::Error>> {
     println!("[webclient] Uploading to {}", url);
 
-    // async stream generating an infinite amount of 4KiB chunks
+    // async stream generating an infinite amount chunks
     let async_stream = async_stream::stream! {
         let mut cur_time = SystemTime::now();
         let mut cur_bytes: u64 = 0;
@@ -49,9 +62,9 @@ pub async fn upload(url: String) -> Result<(), Box<dyn std::error::Error>> {
             let elapsed = cur_time.elapsed().unwrap();
             if elapsed >= Duration::from_secs(5) {
                 // rate in mbit/s
-                let rate = ((((cur_bytes as f64) * 8.0) / 1024.0) / 1024.0) / elapsed.as_secs_f64();
-                println!("[webclient] Uploaded {} MB in {} s at rate {} Mbit/s",
-                    cur_bytes / 1024 / 1024,
+                let rate = ((((cur_bytes as f64) * 8.0) / 1000.0) / 1000.0) / elapsed.as_secs_f64();
+                println!("[webclient] Uploaded {} MB in {}s at rate {} Mbit/s",
+                    cur_bytes / 1000 / 1000,
                     elapsed.as_secs_f64(),
                     rate);
 
@@ -59,9 +72,9 @@ pub async fn upload(url: String) -> Result<(), Box<dyn std::error::Error>> {
                 cur_time = SystemTime::now();
                 cur_bytes = 0;
             }
-            let bytes: Vec<u8> = vec![255u8; 4096];
-            cur_bytes += 4096;
-            yield Ok::<Vec<u8>, String>(bytes);
+            let chunk = [255u8; CHUNK_SIZE];
+            cur_bytes += chunk.len() as u64;
+            yield Ok::<Vec<u8>, String>(chunk.to_vec());
         }
     };
 
